@@ -1,4 +1,4 @@
-"""USD to Iranian rial currency exchange plugin for InvenTree."""
+"""USD to Iranian toman currency exchange plugin for InvenTree."""
 
 import decimal
 import logging
@@ -9,12 +9,16 @@ from common.settings import get_global_setting
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from lxml import etree, html
+from moneyed import CURRENCIES, add_currency
 from plugin import InvenTreePlugin
 from plugin.mixins import CurrencyExchangeMixin, ScheduleMixin, SettingsMixin
 
 from . import PLUGIN_VERSION
 
 logger = logging.getLogger("inventree")
+
+if "IRT" not in CURRENCIES:
+    add_currency(code="IRT", numeric=None, name="Iranian toman")
 
 
 def validate_positive_finite_rate(value):
@@ -26,20 +30,20 @@ def validate_positive_finite_rate(value):
 
     if not rate.is_finite() or rate <= 0:
         raise ValidationError(
-            _("Enter a positive, finite USD to IRR rate"), code="invalid"
+            _("Enter a positive, finite USD to IRT rate"), code="invalid"
         )
 
 
-class IranianCurrencyExchange(
+class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
     ScheduleMixin, CurrencyExchangeMixin, SettingsMixin, InvenTreePlugin
 ):
-    """Provide a USD to IRR rate from manual configuration or TGJU."""
+    """Provide a USD to IRT rate from manual configuration or TGJU."""
 
     NAME = "InvenTreeUSDIRTExchangeRate"
     SLUG = "inventree-usd-irt-exchange-rate"
     AUTHOR = "Nooshin Shadiani"
     TITLE = _("Iranian Currency Exchange")
-    DESCRIPTION = _("Manual or TGJU-provided USD to IRR exchange rates")
+    DESCRIPTION = _("Manual or TGJU-provided USD to IRT exchange rates")
     VERSION = PLUGIN_VERSION
     MIN_VERSION = "1.6.0"
     WEBSITE = "https://github.com/nooshin-shadiani/InventreeUSDIRTExchangeRate"
@@ -49,7 +53,7 @@ class IranianCurrencyExchange(
     REQUEST_TIMEOUT = 10
     REQUEST_HEADERS: ClassVar[dict[str, str]] = {
         "Accept": "text/html",
-        "User-Agent": "InvenTree USD IRR Exchange Rate/1.0",
+        "User-Agent": f"InvenTree USD IRT Exchange Rate/{PLUGIN_VERSION}",
     }
     TGJU_SOURCES = (
         (
@@ -67,23 +71,27 @@ class IranianCurrencyExchange(
         ),
     )
 
-    SCHEDULED_TASKS: ClassVar[dict[str, dict[str, str | int]]] = {
-        "refresh_usd_irr": {"func": "refresh_usd_irr", "schedule": "I", "minutes": 180}
+    SCHEDULED_TASKS: ClassVar[  # pyrefly: ignore [bad-override]
+        dict[str, dict[str, str | int]]
+    ] = {
+        "refresh_usd_irt": {"func": "refresh_usd_irt", "schedule": "I", "minutes": 180}
     }
 
-    SETTINGS: ClassVar[dict[str, dict[str, object]]] = {
+    SETTINGS: ClassVar[  # pyrefly: ignore [bad-override]
+        dict[str, dict[str, object]]
+    ] = {
         "API_ENABLED": {
             "name": _("Enable TGJU USD rate consumer"),
             "description": _(
-                "Fetch the free-market USD to IRR rate from TGJU using XPath instead of using the manual rate"
+                "Fetch the free-market USD to IRT rate from TGJU using XPath instead of using the manual rate"
             ),
             "validator": bool,
             "default": False,
         },
-        "USD_IRR_RATE": {
-            "name": _("Manual USD to IRR rate"),
-            "description": _("Iranian rials per one US dollar"),
-            "units": _("IRR per USD"),
+        "USD_IRT_RATE": {
+            "name": _("Manual USD to IRT rate"),
+            "description": _("Iranian tomans per one US dollar"),
+            "units": _("IRT per USD"),
             "validator": [float, validate_positive_finite_rate],
         },
     }
@@ -98,16 +106,22 @@ class IranianCurrencyExchange(
         rate = decimal.Decimal(text)
 
         if not rate.is_finite() or rate <= 0:
-            raise ValueError("USD to IRR rate must be a positive finite number")
+            raise ValueError("Exchange rate must be a positive finite number")
 
         return rate
 
     def _manual_rate(self) -> decimal.Decimal | None:
         """Return the configured manual rate, if valid."""
         try:
-            return self._parse_rate(self.get_setting("USD_IRR_RATE"))
+            return self._parse_rate(self.get_setting("USD_IRT_RATE"))
         except (decimal.InvalidOperation, TypeError, ValueError):
-            logger.warning("Manual USD to IRR exchange rate is not valid")
+            pass
+
+        try:
+            legacy_irr_rate = self._parse_rate(self.get_setting("USD_IRR_RATE"))
+            return legacy_irr_rate / decimal.Decimal(10)
+        except (decimal.InvalidOperation, TypeError, ValueError):
+            logger.warning("Manual USD to IRT exchange rate is not valid")
             return None
 
     @classmethod
@@ -127,7 +141,7 @@ class IranianCurrencyExchange(
         return None
 
     def _tgju_rate(self) -> decimal.Decimal | None:
-        """Fetch the TGJU free-market USD rate, expressed in Iranian rials."""
+        """Fetch TGJU's IRR quote and convert it to Iranian tomans."""
         for url, xpaths in self.TGJU_SOURCES:
             try:
                 response = requests.get(
@@ -138,12 +152,12 @@ class IranianCurrencyExchange(
                 continue
 
             if rate := self._extract_tgju_rate(response.content, xpaths):
-                return rate
+                return rate / decimal.Decimal(10)
 
-        logger.warning("TGJU returned no valid USD to IRR exchange rate")
+        logger.warning("TGJU returned no valid USD to IRT exchange rate")
         return None
 
-    def refresh_usd_irr(self):
+    def refresh_usd_irt(self):
         """Refresh the selected TGJU exchange rate on the plugin schedule."""
         if not self.get_setting("API_ENABLED"):
             return
@@ -160,12 +174,12 @@ class IranianCurrencyExchange(
         update_exchange_rates(force=True)
 
     def update_exchange_rates(self, base_currency: str, symbols: list[str]) -> dict:
-        """Return USD-based rates for the supported USD and IRR scope."""
-        base_currency = str(base_currency).upper()
-        requested = {str(symbol).upper() for symbol in symbols}
-        supported = {"USD", "IRR"}
+        """Return USD-based rates for the supported USD and IRT scope."""
+        base_currency = base_currency.upper()
+        requested = {symbol.upper() for symbol in symbols}
+        supported = {"USD", "IRT"}
 
-        # django-money stores only six decimal places for exchange rates. Using IRR
+        # django-money stores only six decimal places for exchange rates. Using IRT
         # as the base would round the reciprocal USD rate too aggressively.
         if base_currency != "USD":
             logger.warning(
@@ -174,7 +188,7 @@ class IranianCurrencyExchange(
             return {}
 
         if requested != supported:
-            logger.warning("Iranian currency exchange plugin requires USD and IRR")
+            logger.warning("Iranian currency exchange plugin requires USD and IRT")
             return {}
 
         rate = (
@@ -186,4 +200,4 @@ class IranianCurrencyExchange(
         if rate is None:
             return {}
 
-        return {"USD": decimal.Decimal(1), "IRR": rate}
+        return {"USD": decimal.Decimal(1), "IRT": rate}

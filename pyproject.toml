@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "inventree-usd-irt-exchange-rate"
-description = "Manual and TGJU-provided USD to IRR exchange rates for InvenTree"
+description = "Manual and TGJU-provided USD to IRT exchange rates for InvenTree"
 dynamic = ["version"]
 authors = [
     { name = "Nooshin Shadiani" },
@@ -13,6 +13,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "lxml>=5",
+    "py-moneyed>=3",
     "requests>=2.31",
 ]
 keywords = ["inventree", "plugin", "currency", "iran", "tgju"]
@@ -30,6 +31,11 @@ Issues = "https://github.com/nooshin-shadiani/InventreeUSDIRTExchangeRate/issues
 [project.entry-points."inventree_plugins"]
 InvenTreeUSDIRTExchangeRate = "inventree_usd_irt_exchange_rate.core:IranianCurrencyExchange"
 
+[project.optional-dependencies]
+dev = [
+    "pyrefly>=1.2,<2",
+]
+
 [tool.setuptools.packages.find]
 where = [""]
 include = ["inventree_usd_irt_exchange_rate*"]
@@ -46,5 +52,13 @@ select = ["A", "B", "C4", "D", "F", "I", "N", "PIE", "PL", "RUF", "SIM", "UP", "
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.ruff.lint.per-file-ignores]
-"inventree_usd_irt_exchange_rate/__init__.py" = ["RUF067"]
+[tool.pyrefly]
+python-version = "3.12"
+project-includes = ["inventree_usd_irt_exchange_rate", "tests"]
+ignore-missing-imports = [
+    "common.*",
+    "django.*",
+    "InvenTree.*",
+    "plugin",
+    "plugin.*",
+]

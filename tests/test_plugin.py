@@ -1,9 +1,11 @@
 """Behavior tests for the Iranian currency exchange plugin."""
 
+import decimal
 from unittest import mock
 
 from django.core.exceptions import ValidationError
 from django.test import SimpleTestCase
+from moneyed import CURRENCIES
 
 from inventree_usd_irt_exchange_rate import core
 
@@ -46,9 +48,13 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
         """Create a currency exchange plugin instance."""
         self.plugin = core.IranianCurrencyExchange()
 
-    def plugin_settings(self, *, api_enabled=False, manual_rate=0):
+    def plugin_settings(self, *, api_enabled=False, manual_rate=0, legacy_rate=0):
         """Return deterministic plugin settings for a test."""
-        values = {"API_ENABLED": api_enabled, "USD_IRR_RATE": manual_rate}
+        values = {
+            "API_ENABLED": api_enabled,
+            "USD_IRT_RATE": manual_rate,
+            "USD_IRR_RATE": legacy_rate,
+        }
 
         return mock.patch.object(
             self.plugin, "get_setting", side_effect=lambda key: values[key]
@@ -59,47 +65,78 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
         self.assertEqual(self.plugin.AUTHOR, "Nooshin Shadiani")
         self.assertEqual(self.plugin.SLUG, "inventree-usd-irt-exchange-rate")
         self.assertIn("API_ENABLED", self.plugin.SETTINGS)
-        self.assertIn("USD_IRR_RATE", self.plugin.SETTINGS)
+        self.assertIn("USD_IRT_RATE", self.plugin.SETTINGS)
+        self.assertNotIn("USD_IRR_RATE", self.plugin.SETTINGS)
         self.assertNotIn("API_KEY", self.plugin.SETTINGS)
+
+    def test_registers_iranian_toman_currency(self):
+        """Register IRT so InvenTree accepts it as a supported currency."""
+        self.assertIn("IRT", CURRENCIES)
+        self.assertEqual(CURRENCIES["IRT"].name, "Iranian toman")
 
     def test_manual_rate_setting_requires_positive_finite_value(self):
         """Reject manual rates which cannot be used for conversion."""
-        validator = self.plugin.SETTINGS["USD_IRR_RATE"]["validator"][-1]
+        validators = self.plugin.SETTINGS["USD_IRT_RATE"]["validator"]
+        self.assertIsInstance(validators, list)
+        validator = validators[-1]
+        self.assertTrue(callable(validator))
 
         for value in [0, -1, float("nan"), float("inf")]:
             with self.subTest(value=value), self.assertRaises(ValidationError):
                 validator(value)
 
-        validator(1_878_000)
+        validator(187_800)
 
     def test_manual_rate_never_calls_tgju(self):
-        """Use the configured IRR-per-USD value without a network request."""
+        """Use the configured IRT-per-USD value without a network request."""
         with (
-            self.plugin_settings(api_enabled=False, manual_rate=1_878_000),
+            self.plugin_settings(
+                api_enabled=False, manual_rate=187_800, legacy_rate=9_999_990
+            ),
             mock.patch.object(self.plugin, "_tgju_rate") as tgju_rate,
         ):
-            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRR"])
+            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRT"])
 
         tgju_rate.assert_not_called()
-        self.assertEqual(rates, {"USD": 1.0, "IRR": 1_878_000.0})
+        self.assertEqual(
+            rates,
+            {"USD": decimal.Decimal(1), "IRT": decimal.Decimal("187800")},
+        )
+
+    def test_legacy_manual_irr_rate_is_converted_to_irt(self):
+        """Preserve version 1.0 manual rates while upgrading to IRT."""
+        with (
+            self.plugin_settings(manual_rate=None, legacy_rate=1_878_000),
+            mock.patch.object(self.plugin, "_tgju_rate") as tgju_rate,
+        ):
+            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRT"])
+
+        tgju_rate.assert_not_called()
+        self.assertEqual(
+            rates,
+            {"USD": decimal.Decimal(1), "IRT": decimal.Decimal("187800")},
+        )
 
     @mock.patch.object(core.requests, "get")
     def test_currency_page_semantic_xpath(self, request_get):
-        """Extract the rial rate from TGJU's semantic currency table row."""
+        """Convert TGJU's rial quote to toman from the semantic table row."""
         request_get.return_value.content = TGJU_TABLE_HTML
 
         with self.plugin_settings(api_enabled=True):
-            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRR"])
+            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRT"])
 
         request_get.assert_called_once_with(
             "https://www.tgju.org/currency",
             headers={
                 "Accept": "text/html",
-                "User-Agent": "InvenTree USD IRR Exchange Rate/1.0",
+                "User-Agent": "InvenTree USD IRT Exchange Rate/1.1.0",
             },
             timeout=10,
         )
-        self.assertEqual(rates, {"USD": 1.0, "IRR": 1_878_000.0})
+        self.assertEqual(
+            rates,
+            {"USD": decimal.Decimal(1), "IRT": decimal.Decimal("187800")},
+        )
 
     @mock.patch.object(core.requests, "get")
     def test_currency_page_legacy_xpath(self, request_get):
@@ -107,10 +144,13 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
         request_get.return_value.content = TGJU_STICKY_HTML
 
         with self.plugin_settings(api_enabled=True):
-            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRR"])
+            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRT"])
 
         self.assertEqual(request_get.call_count, 1)
-        self.assertEqual(rates, {"USD": 1.0, "IRR": 1_878_000.0})
+        self.assertEqual(
+            rates,
+            {"USD": decimal.Decimal(1), "IRT": decimal.Decimal("187800")},
+        )
 
     @mock.patch.object(core.requests, "get")
     def test_profile_page_xpath_fallback(self, request_get):
@@ -121,7 +161,7 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
         ]
 
         with self.plugin_settings(api_enabled=True):
-            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRR"])
+            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRT"])
 
         self.assertEqual(
             [call.args[0] for call in request_get.call_args_list],
@@ -130,17 +170,20 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
                 "https://www.tgju.org/profile/price_dollar_rl",
             ],
         )
-        self.assertEqual(rates, {"USD": 1.0, "IRR": 1_878_000.0})
+        self.assertEqual(
+            rates,
+            {"USD": decimal.Decimal(1), "IRT": decimal.Decimal("187800")},
+        )
 
-    def test_requires_usd_base_and_exact_usd_irr_symbols(self):
-        """Reject configurations which could erase or round the IRR rate."""
-        with self.plugin_settings(manual_rate=2_000_000):
+    def test_requires_usd_base_and_exact_usd_irt_symbols(self):
+        """Reject configurations which could erase or round the IRT rate."""
+        with self.plugin_settings(manual_rate=200_000):
             self.assertEqual(
-                self.plugin.update_exchange_rates("IRR", ["IRR", "USD"]), {}
+                self.plugin.update_exchange_rates("IRT", ["IRT", "USD"]), {}
             )
             self.assertEqual(self.plugin.update_exchange_rates("USD", ["USD"]), {})
             self.assertEqual(
-                self.plugin.update_exchange_rates("USD", ["USD", "IRR", "EUR"]),
+                self.plugin.update_exchange_rates("USD", ["USD", "IRT", "EUR"]),
                 {},
             )
 
@@ -150,7 +193,7 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
         request_get.return_value.content = b"<html></html>"
 
         with self.plugin_settings(api_enabled=True):
-            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRR"])
+            rates = self.plugin.update_exchange_rates("USD", ["USD", "IRT"])
 
         self.assertEqual(request_get.call_count, 2)
         self.assertEqual(rates, {})
@@ -160,8 +203,8 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
         self.assertEqual(
             self.plugin.get_scheduled_tasks(),
             {
-                "refresh_usd_irr": {
-                    "func": "refresh_usd_irr",
+                "refresh_usd_irt": {
+                    "func": "refresh_usd_irt",
                     "schedule": "I",
                     "minutes": 180,
                 }
@@ -172,7 +215,7 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
     def test_scheduled_refresh_exits_when_api_disabled(self, update_rates):
         """Do not invoke an exchange update while TGJU consumption is disabled."""
         with self.plugin_settings(api_enabled=False):
-            self.plugin.refresh_usd_irr()
+            self.plugin.refresh_usd_irt()
 
         update_rates.assert_not_called()
 
@@ -185,6 +228,6 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
                 core, "get_global_setting", return_value=self.plugin.slug
             ),
         ):
-            self.plugin.refresh_usd_irr()
+            self.plugin.refresh_usd_irt()
 
         update_rates.assert_called_once_with(force=True)

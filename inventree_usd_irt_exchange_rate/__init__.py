@@ -1,3 +1,3 @@
-"""InvenTree USD to Iranian rial exchange rate plugin."""
+"""InvenTree USD to Iranian toman exchange rate plugin."""
 
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.1.0"
