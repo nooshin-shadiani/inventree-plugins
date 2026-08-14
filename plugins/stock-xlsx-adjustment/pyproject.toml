@@ -3,8 +3,8 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "inventree-usd-irt-exchange-rate"
-description = "Manual and TGJU-provided USD to IRT exchange rates for InvenTree"
+name = "inventree-stock-xlsx-adjustment"
+description = "Preview and apply logged InvenTree stock adjustments from XLSX files"
 dynamic = ["version"]
 authors = [
     { name = "Nooshin Shadiani" },
@@ -13,12 +13,8 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
-dependencies = [
-    "lxml>=5",
-    "py-moneyed>=3",
-    "requests>=2.31",
-]
-keywords = ["inventree", "plugin", "currency", "iran", "tgju"]
+dependencies = []
+keywords = ["inventree", "plugin", "inventory", "stock", "xlsx"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
@@ -26,12 +22,12 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/nooshin-shadiani/inventree-plugins/tree/main/plugins/usd-irt-exchange-rate"
+Homepage = "https://github.com/nooshin-shadiani/inventree-plugins/tree/main/plugins/stock-xlsx-adjustment"
 Repository = "https://github.com/nooshin-shadiani/inventree-plugins"
 Issues = "https://github.com/nooshin-shadiani/inventree-plugins/issues"
 
 [project.entry-points."inventree_plugins"]
-InvenTreeUSDIRTExchangeRate = "inventree_usd_irt_exchange_rate.core:IranianCurrencyExchange"
+InvenTreeStockXlsxAdjustment = "inventree_stock_xlsx_adjustment.core:StockXlsxAdjustmentPlugin"
 
 [project.optional-dependencies]
 dev = [
@@ -40,10 +36,13 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = [""]
-include = ["inventree_usd_irt_exchange_rate*"]
+include = ["inventree_stock_xlsx_adjustment*"]
+
+[tool.setuptools.package-data]
+inventree_stock_xlsx_adjustment = ["static/*.js"]
 
 [tool.setuptools.dynamic]
-version = { attr = "inventree_usd_irt_exchange_rate.PLUGIN_VERSION" }
+version = { attr = "inventree_stock_xlsx_adjustment.PLUGIN_VERSION" }
 
 [tool.ruff]
 target-version = "py312"
@@ -56,11 +55,17 @@ convention = "google"
 
 [tool.pyrefly]
 python-version = "3.12"
-project-includes = ["inventree_usd_irt_exchange_rate", "tests"]
+project-includes = ["inventree_stock_xlsx_adjustment"]
 ignore-missing-imports = [
     "common.*",
     "django.*",
+    "importer.*",
     "InvenTree.*",
+    "openpyxl.*",
     "plugin",
     "plugin.*",
+    "rest_framework.*",
+    "stock.*",
+    "tablib",
+    "users.*",
 ]

@@ -45,6 +45,7 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
     TITLE = _("Iranian Currency Exchange")
     DESCRIPTION = _("Manual or TGJU-provided USD to IRT exchange rates")
     VERSION = PLUGIN_VERSION
+    LICENSE = "MIT"
     MIN_VERSION = "1.6.0"
     WEBSITE = "https://github.com/nooshin-shadiani/inventree-plugins/tree/main/plugins/usd-irt-exchange-rate"
 
