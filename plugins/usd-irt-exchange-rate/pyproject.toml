@@ -59,8 +59,11 @@ python-version = "3.12"
 project-includes = ["inventree_usd_irt_exchange_rate", "tests"]
 ignore-missing-imports = [
     "common.*",
+    "company.*",
     "django.*",
+    "djmoney.*",
     "InvenTree.*",
+    "part.*",
     "plugin",
     "plugin.*",
 ]

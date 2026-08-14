@@ -8,13 +8,15 @@ USD and the Iranian toman (IRT). It supports:
   XPath and converts the quoted rial value to toman.
 - Automatic updates every three hours through InvenTree's existing Django-Q2
   scheduler.
+- Immutable USD and IRT values, together with the applied rate, whenever a
+  supported part price is entered or changed.
 
 No Celery worker, `django-constance`, API key, or modification to InvenTree's
 source code is required.
 
 ## Requirements
 
-- InvenTree 1.6.0 or newer
+- InvenTree 1.6.x
 - Python 3.12 or newer
 - InvenTree external plugin support and its background worker
 
@@ -34,8 +36,27 @@ git+https://github.com/nooshin-shadiani/inventree-plugins.git@main#subdirectory=
 ```
 
 Restart both the InvenTree web server and background worker after installation.
-Then open the Admin Center, locate **Iranian Currency Exchange**, and activate
-it.
+Then:
+
+1. Enable **App Integration** in the InvenTree plugin settings.
+2. Open the Admin Center, locate **Iranian Currency Exchange**, and activate it.
+3. Apply the plugin database migration using the normal InvenTree update flow:
+
+   ```bash
+   invoke update
+   ```
+
+   For a Docker Compose installation, run:
+
+   ```bash
+   docker compose run --rm inventree-server invoke update
+   ```
+
+4. Restart the web server and background worker again.
+
+Core prices remain saveable before the migration, but snapshots cannot be
+recorded until the plugin table exists. Apply the migration before relying on
+the history.
 
 ## InvenTree configuration
 
@@ -46,6 +67,7 @@ Configure these system settings:
 - **Currency Update Plugin**: `Iranian Currency Exchange`
 - **Currency Update Interval**: `0`
 - **Enable schedule integration**: enabled
+- **Enable app integration**: enabled
 
 Setting the core currency interval to zero prevents InvenTree's daily currency
 task from overlapping the plugin's three-hour schedule. The plugin task forces
@@ -81,6 +103,49 @@ by ten and returns the result as IRT per USD.
 If neither page provides a valid positive rate, the plugin returns no update;
 it does not substitute the manual rate automatically.
 
+## Historical price snapshots
+
+When a non-empty supported catalog price is saved through the normal InvenTree
+model path, the plugin reads the rate already applied in InvenTree's
+`InvenTreeExchange` database backend. It does not contact TGJU and does not read
+the manual setting during the price save. Each snapshot stores:
+
+- The original amount and currency.
+- The USD-to-IRT rate and its last successful update time.
+- Locked USD and IRT equivalents.
+- The price-record timestamp, capture timestamp, part ID, and price-break
+  quantity.
+
+Snapshots are captured for supplier, sale, and internal price breaks, plus the
+minimum and maximum price overrides on a part. Saving an unchanged price does
+not create a duplicate. Sequentially changing a non-empty price creates a new
+row and never rewrites the older conversion. Clearing a nullable price does not
+create a conversion row.
+
+If no applied IRT rate exists, the original price is still recorded with a
+`missing_rate` status and empty conversion fields. A later exchange-rate update
+does not rewrite it using a rate which was unavailable when the price was
+entered.
+
+Administrators can inspect the append-only records under **USD / IRT Exchange
+Rate > Price exchange snapshots** in the Django administration site. The plugin
+disables adding, editing, and deleting these records through that interface.
+
+Snapshot collection starts only after App Integration is enabled, the plugin is
+active, and its migration is applied. Existing prices cannot be given truthful
+historical exchange rates, so the plugin does not backfill them.
+
+The standard InvenTree UI, API serializers, and spreadsheet importer use normal
+model saves and are covered. Direct `bulk_create`, `bulk_update`, raw SQL, and
+`QuerySet.update` calls made by custom code bypass Django signals and therefore
+do not create snapshots.
+
+If multiple writers update the same source price concurrently, delayed signal
+handlers refresh from the locked source row so an older value cannot become the
+latest snapshot. Distinct overlapping writes can therefore coalesce to the
+latest committed value; this table is an append-only price history, not a
+database change-data-capture stream.
+
 ## Development
 
 From the repository root, enter this plugin directory and install its
@@ -95,7 +160,10 @@ The behavior tests run through InvenTree's Django test runner. From the plugin
 directory, point the command at an InvenTree checkout:
 
 ```bash
-PYTHONPATH="$PWD" python /path/to/InvenTree/src/backend/InvenTree/manage.py test tests.test_plugin --keepdb
+INVENTREE_PLUGINS_ENABLED=true \
+INVENTREE_PLUGIN_TESTING_SETUP=true \
+PYTHONPATH="$PWD" \
+python /path/to/InvenTree/src/backend/InvenTree/manage.py test tests --keepdb
 ```
 
 From the plugin directory, run the type checker:

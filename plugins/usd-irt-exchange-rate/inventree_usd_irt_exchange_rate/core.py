@@ -11,7 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from lxml import etree, html
 from moneyed import CURRENCIES, add_currency
 from plugin import InvenTreePlugin
-from plugin.mixins import CurrencyExchangeMixin, ScheduleMixin, SettingsMixin
+from plugin.mixins import AppMixin, CurrencyExchangeMixin, ScheduleMixin, SettingsMixin
 
 from . import PLUGIN_VERSION
 
@@ -35,7 +35,7 @@ def validate_positive_finite_rate(value):
 
 
 class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
-    ScheduleMixin, CurrencyExchangeMixin, SettingsMixin, InvenTreePlugin
+    AppMixin, ScheduleMixin, CurrencyExchangeMixin, SettingsMixin, InvenTreePlugin
 ):
     """Provide a USD to IRT rate from manual configuration or TGJU."""
 
@@ -47,6 +47,7 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
     VERSION = PLUGIN_VERSION
     LICENSE = "MIT"
     MIN_VERSION = "1.6.0"
+    MAX_VERSION = "1.6.99"
     WEBSITE = "https://github.com/nooshin-shadiani/inventree-plugins/tree/main/plugins/usd-irt-exchange-rate"
 
     TGJU_CURRENCY_URL = "https://www.tgju.org/currency"
