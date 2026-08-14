@@ -24,9 +24,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/nooshin-shadiani/InventreeUSDIRTExchangeRate"
-Repository = "https://github.com/nooshin-shadiani/InventreeUSDIRTExchangeRate"
-Issues = "https://github.com/nooshin-shadiani/InventreeUSDIRTExchangeRate/issues"
+Homepage = "https://github.com/nooshin-shadiani/inventree-plugins/tree/main/plugins/usd-irt-exchange-rate"
+Repository = "https://github.com/nooshin-shadiani/inventree-plugins"
+Issues = "https://github.com/nooshin-shadiani/inventree-plugins/issues"
 
 [project.entry-points."inventree_plugins"]
 InvenTreeUSDIRTExchangeRate = "inventree_usd_irt_exchange_rate.core:IranianCurrencyExchange"

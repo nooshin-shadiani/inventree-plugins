@@ -46,7 +46,7 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
     DESCRIPTION = _("Manual or TGJU-provided USD to IRT exchange rates")
     VERSION = PLUGIN_VERSION
     MIN_VERSION = "1.6.0"
-    WEBSITE = "https://github.com/nooshin-shadiani/InventreeUSDIRTExchangeRate"
+    WEBSITE = "https://github.com/nooshin-shadiani/inventree-plugins/tree/main/plugins/usd-irt-exchange-rate"
 
     TGJU_CURRENCY_URL = "https://www.tgju.org/currency"
     TGJU_PROFILE_URL = "https://www.tgju.org/profile/price_dollar_rl"
