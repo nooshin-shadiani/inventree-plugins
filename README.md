@@ -8,4 +8,5 @@ with its own documentation, tests, and build configuration.
 ## Available plugins
 
 - [USD / IRT exchange rate](plugins/usd-irt-exchange-rate/): manual and
-  TGJU-provided US dollar to Iranian toman exchange rates.
+  TGJU-provided US dollar to Iranian toman exchange rates, with immutable
+  USD/IRT snapshots for saved part prices.
