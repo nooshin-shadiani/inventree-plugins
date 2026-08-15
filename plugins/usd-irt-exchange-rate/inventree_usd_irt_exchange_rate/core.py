@@ -9,16 +9,12 @@ from common.settings import get_global_setting
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from lxml import etree, html
-from moneyed import CURRENCIES, add_currency
 from plugin import InvenTreePlugin
 from plugin.mixins import AppMixin, CurrencyExchangeMixin, ScheduleMixin, SettingsMixin
 
 from . import PLUGIN_VERSION
 
 logger = logging.getLogger("inventree")
-
-if "IRT" not in CURRENCIES:
-    add_currency(code="IRT", numeric=None, name="Iranian toman")
 
 
 def validate_positive_finite_rate(value):
