@@ -8,6 +8,8 @@ USD and the Iranian toman (IRT). It supports:
   XPath and converts the quoted rial value to toman.
 - Automatic updates every three hours through InvenTree's existing Django-Q2
   scheduler.
+- A part-page panel which shows current price ranges in USD and IRT side by
+  side, together with the latest immutable conversion for each saved price.
 - Immutable USD and IRT values, together with the applied rate, whenever a
   supported part price is entered or changed.
 
@@ -35,12 +37,16 @@ For a persistent InvenTree or Docker installation, add this line to
 git+https://github.com/nooshin-shadiani/inventree-plugins.git@main#subdirectory=plugins/usd-irt-exchange-rate
 ```
 
-Restart both the InvenTree web server and background worker after installation.
+The package installs a lightweight Python startup hook so IRT is registered
+before InvenTree builds currency choices. Restart both the InvenTree web server
+and background worker after installation.
 Then:
 
 1. Enable **App Integration** in the InvenTree plugin settings.
-2. Open the Admin Center, locate **Iranian Currency Exchange**, and activate it.
-3. Apply the plugin database migration using the normal InvenTree update flow:
+2. Enable **URL Integration** and **User Interface Integration** so the dual
+   currency panel and its read-only history endpoint are available.
+3. Open the Admin Center, locate **Iranian Currency Exchange**, and activate it.
+4. Apply the plugin database migration using the normal InvenTree update flow:
 
    ```bash
    invoke update
@@ -52,7 +58,7 @@ Then:
    docker compose run --rm inventree-server invoke update
    ```
 
-4. Restart the web server and background worker again.
+5. Restart the web server and background worker again.
 
 Core prices remain saveable before the migration, but snapshots cannot be
 recorded until the plugin table exists. Apply the migration before relying on
@@ -130,6 +136,12 @@ entered.
 Administrators can inspect the append-only records under **USD / IRT Exchange
 Rate > Price exchange snapshots** in the Django administration site. The plugin
 disables adding, editing, and deleting these records through that interface.
+
+Authorized users can open **USD / IRT Pricing** on any part page. The panel
+shows every available calculated price range in parallel USD and IRT columns,
+plus the latest saved snapshot for each price source. Historical rows are
+filtered through the requesting user's normal InvenTree model permissions, so
+supplier prices are not exposed to users who cannot view supplier pricing.
 
 Snapshot collection starts only after App Integration is enabled, the plugin is
 active, and its migration is applied. Existing prices cannot be given truthful

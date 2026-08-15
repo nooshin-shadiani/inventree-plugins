@@ -38,9 +38,21 @@ dev = [
     "pyrefly>=1.2,<2",
 ]
 
+[tool.setuptools]
+py-modules = ["_inventree_usd_irt_build"]
+
 [tool.setuptools.packages.find]
 where = [""]
 include = ["inventree_usd_irt_exchange_rate*"]
+
+[tool.setuptools.package-data]
+inventree_usd_irt_exchange_rate = ["static/*.js"]
+
+[tool.setuptools.data-files]
+"" = ["inventree_usd_irt_exchange_rate_bootstrap.pth"]
+
+[tool.setuptools.cmdclass]
+install_data = "_inventree_usd_irt_build.InstallDataToPurelib"
 
 [tool.setuptools.dynamic]
 version = { attr = "inventree_usd_irt_exchange_rate.PLUGIN_VERSION" }
@@ -66,4 +78,6 @@ ignore-missing-imports = [
     "part.*",
     "plugin",
     "plugin.*",
+    "rest_framework.*",
+    "users.*",
 ]

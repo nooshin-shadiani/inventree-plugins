@@ -7,10 +7,20 @@ from typing import ClassVar
 import requests
 from common.settings import get_global_setting
 from django.core.exceptions import ValidationError
+from django.urls import path, reverse
 from django.utils.translation import gettext_lazy as _
 from lxml import etree, html
+from part.models import Part
 from plugin import InvenTreePlugin
-from plugin.mixins import AppMixin, CurrencyExchangeMixin, ScheduleMixin, SettingsMixin
+from plugin.mixins import (
+    AppMixin,
+    CurrencyExchangeMixin,
+    ScheduleMixin,
+    SettingsMixin,
+    UrlsMixin,
+    UserInterfaceMixin,
+)
+from users.permissions import check_user_permission
 
 from . import PLUGIN_VERSION
 
@@ -31,7 +41,13 @@ def validate_positive_finite_rate(value):
 
 
 class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
-    AppMixin, ScheduleMixin, CurrencyExchangeMixin, SettingsMixin, InvenTreePlugin
+    AppMixin,
+    ScheduleMixin,
+    CurrencyExchangeMixin,
+    SettingsMixin,
+    UrlsMixin,
+    UserInterfaceMixin,
+    InvenTreePlugin,
 ):
     """Provide a USD to IRT rate from manual configuration or TGJU."""
 
@@ -93,6 +109,53 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
             "validator": [float, validate_positive_finite_rate],
         },
     }
+
+    def setup_urls(self):
+        """Expose read-only historical prices to the plugin UI."""
+        from .views import PartPriceSnapshotView  # noqa: PLC0415
+
+        return [
+            path(
+                "part/<int:part_id>/prices/",
+                PartPriceSnapshotView.as_view(),
+                name="part-prices",
+            )
+        ]
+
+    def get_ui_panels(self, request, context, **kwargs):
+        """Show current and saved USD/IRT prices on each part page."""
+        if context.get("target_model") != "part" or not check_user_permission(
+            request.user, Part, "view"
+        ):
+            return []
+
+        try:
+            part_id = int(context.get("target_id"))
+        except (TypeError, ValueError):
+            return []
+
+        if not Part.objects.filter(pk=part_id).exists():
+            return []
+
+        return [
+            {
+                "key": "usd-irt-pricing",
+                "title": _("USD / IRT Pricing"),
+                "description": _(
+                    "Current part pricing and immutable saved-price conversions"
+                ),
+                "icon": "ti:currency-dollar:outline",
+                "source": self.plugin_static_file("dual_currency_pricing.js"),
+                "context": {
+                    "pricing_url": reverse("api-part-pricing", kwargs={"pk": part_id}),
+                    "exchange_url": reverse("api-currency-exchange"),
+                    "history_url": reverse(
+                        f"plugin:{self.slug}:part-prices",
+                        kwargs={"part_id": part_id},
+                    ),
+                },
+            }
+        ]
 
     _DIGIT_TRANSLATION = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
 

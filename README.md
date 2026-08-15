@@ -9,7 +9,7 @@ with its own documentation, tests, and build configuration.
 
 - [USD / IRT exchange rate](plugins/usd-irt-exchange-rate/): manual and
   TGJU-provided US dollar to Iranian toman exchange rates, with immutable
-  USD/IRT snapshots for saved part prices.
+  USD/IRT snapshots and a side-by-side part pricing panel.
 - [Stock XLSX adjustment](plugins/stock-xlsx-adjustment/): preview and apply
   logged bulk additions, removals, and stocktakes from an Excel workbook.
 
