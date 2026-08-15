@@ -10,6 +10,8 @@ USD and the Iranian toman (IRT). It supports:
   scheduler.
 - A part-page panel which shows current price ranges in USD and IRT side by
   side, together with the latest immutable conversion for each saved price.
+- IRT choices in every shared money field, including InvenTree's exceptional
+  part-pricing override selectors which otherwise freeze their choices early.
 - Immutable USD and IRT values, together with the applied rate, whenever a
   supported part price is entered or changed.
 

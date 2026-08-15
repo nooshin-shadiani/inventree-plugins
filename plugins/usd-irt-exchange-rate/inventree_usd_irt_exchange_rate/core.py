@@ -2,6 +2,7 @@
 
 import decimal
 import logging
+from functools import wraps
 from typing import ClassVar
 
 import requests
@@ -25,6 +26,32 @@ from users.permissions import check_user_permission
 from . import PLUGIN_VERSION
 
 logger = logging.getLogger("inventree")
+
+
+def install_dynamic_part_pricing_currency_choices():
+    """Keep InvenTree's exceptional part-override choices current."""
+    from common.currency import currency_code_mappings  # noqa: PLC0415
+    from part.serializers import PartPricingSerializer  # noqa: PLC0415
+
+    marker = "_usd_irt_dynamic_currency_choices"
+    if getattr(PartPricingSerializer, marker, False):
+        return
+
+    original_get_fields = PartPricingSerializer.get_fields
+
+    @wraps(original_get_fields)
+    def get_fields(serializer):
+        """Refresh override currencies when the serializer is instantiated."""
+        fields = original_get_fields(serializer)
+        choices = currency_code_mappings()
+
+        for field_name in ("override_min_currency", "override_max_currency"):
+            fields[field_name].choices = choices
+
+        return fields
+
+    PartPricingSerializer.get_fields = get_fields
+    setattr(PartPricingSerializer, marker, True)
 
 
 def validate_positive_finite_rate(value):
@@ -109,6 +136,11 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
             "validator": [float, validate_positive_finite_rate],
         },
     }
+
+    def __init__(self):
+        """Initialize the plugin and align every part-price currency field."""
+        super().__init__()
+        install_dynamic_part_pricing_currency_choices()
 
     def setup_urls(self):
         """Expose read-only historical prices to the plugin UI."""
