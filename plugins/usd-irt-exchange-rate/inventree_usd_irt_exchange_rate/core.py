@@ -9,7 +9,6 @@ import requests
 from common.settings import get_global_setting
 from django.core.exceptions import ValidationError
 from django.urls import path, reverse
-from django.utils.translation import gettext_lazy as _
 from lxml import etree, html
 from part.models import Part
 from plugin import InvenTreePlugin
@@ -24,6 +23,7 @@ from plugin.mixins import (
 from users.permissions import check_user_permission
 
 from . import PLUGIN_VERSION
+from .localization import translate_lazy as _
 
 logger = logging.getLogger("inventree")
 

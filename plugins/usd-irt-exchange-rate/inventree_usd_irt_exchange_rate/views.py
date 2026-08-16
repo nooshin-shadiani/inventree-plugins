@@ -10,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from users.permissions import check_user_permission
 
+from .localization import translate, translate_lazy
+
 SOURCE_LABELS = {
     "supplierpricebreak": "Supplier price",
     "partsellpricebreak": "Sale price",
@@ -27,7 +29,7 @@ FIELD_LABELS = {
 class PartViewPermission(BasePermission):
     """Require permission to view parts."""
 
-    message = "Part view permission is required."
+    message = translate_lazy("Part view permission is required.")
 
     def has_permission(self, request, view):
         """Return whether the requesting user can view parts."""
@@ -42,15 +44,19 @@ def _decimal_text(value):
 def _source_label(snapshot):
     """Return a concise human-readable source for one snapshot."""
     model_name = snapshot.content_type.model
-    source = SOURCE_LABELS.get(model_name, model_name.replace("_", " ").title())
-    field = FIELD_LABELS.get(snapshot.price_field, snapshot.price_field)
+    source = translate(
+        SOURCE_LABELS.get(model_name, model_name.replace("_", " ").title())
+    )
+    field = translate(FIELD_LABELS.get(snapshot.price_field, snapshot.price_field))
 
     if model_name == "partpricing":
         return field
 
     label = f"{source} #{snapshot.object_id}"
     if snapshot.quantity is not None:
-        label = f"{label} at quantity {_decimal_text(snapshot.quantity)}"
+        label = translate("{label} at quantity {quantity}").format(
+            label=label, quantity=_decimal_text(snapshot.quantity)
+        )
     return label
 
 

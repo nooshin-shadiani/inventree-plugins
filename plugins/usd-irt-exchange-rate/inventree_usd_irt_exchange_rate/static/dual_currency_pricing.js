@@ -12,6 +12,70 @@ const PRICING_ROWS = [
   ['Sale history', 'sale_history_min', 'sale_history_max']
 ];
 
+const PERSIAN_MESSAGES = Object.freeze({
+  'Overall pricing': 'قیمت کلی',
+  'Override pricing': 'قیمت دستی',
+  'Internal pricing': 'قیمت داخلی',
+  'BOM pricing': 'هزینهٔ فهرست مواد',
+  'Purchase pricing': 'هزینهٔ خرید',
+  'Supplier pricing': 'قیمت تأمین‌کننده',
+  'Variant pricing': 'هزینهٔ گونه‌ها',
+  'Sale pricing': 'قیمت فروش',
+  'Sale history': 'سابقهٔ فروش',
+  'Current calculated part pricing': 'قیمت محاسبه‌شدهٔ فعلی قطعه',
+  'Pricing source': 'مبنای قیمت',
+  'Minimum USD': 'حداقل دلار (USD)',
+  'Maximum USD': 'حداکثر دلار (USD)',
+  'Minimum IRT': 'حداقل تومان (IRT)',
+  'Maximum IRT': 'حداکثر تومان (IRT)',
+  'No calculated pricing is available for this part.':
+    'هنوز قیمت محاسبه‌شده‌ای برای این قطعه وجود ندارد.',
+  'Latest saved price for each source': 'آخرین قیمت ذخیره‌شده برای هر منبع',
+  Source: 'منبع',
+  'Entered value': 'مقدار ثبت‌شده',
+  'USD at save': 'دلار هنگام ثبت',
+  'IRT at save': 'تومان هنگام ثبت',
+  'IRT per USD': 'تومان به ازای دلار',
+  Captured: 'زمان ثبت',
+  'No saved price snapshots are available yet.':
+    'هنوز سابقهٔ ذخیره‌شده‌ای از قیمت‌ها وجود ندارد.',
+  Converted: 'تبدیل‌شده',
+  'Missing exchange rate': 'نرخ تبدیل موجود نیست',
+  'Unsupported currency': 'واحد پول پشتیبانی نمی‌شود',
+  'Exchange rate summary': 'خلاصهٔ نرخ تبدیل',
+  '1 USD = {rate}': '۱ دلار (USD) = {rate}',
+  'No applied USD to IRT rate is available.':
+    'هنوز نرخ دلار به تومان اعمال نشده است.',
+  'Exchange rate updated: {date}': 'آخرین به‌روزرسانی نرخ تبدیل: {date}',
+  'Part pricing updated: {date}': 'آخرین به‌روزرسانی قیمت قطعه: {date}',
+  'The request failed.': 'درخواست انجام نشد.',
+  'Could not load USD / IRT pricing: {detail}':
+    'بارگذاری قیمت دلار و تومان ممکن نبود: {detail}',
+  'Loading USD / IRT pricing…': 'در حال بارگذاری قیمت دلار و تومان…',
+  'Part view permission is required.':
+    'برای مشاهدهٔ این اطلاعات، دسترسی مشاهدهٔ قطعه لازم است.',
+  USD: 'دلار (USD)',
+  IRT: 'تومان (IRT)'
+});
+
+function localeRoot(locale) {
+  return String(locale || 'en').replace('_', '-').split('-')[0].toLowerCase();
+}
+
+function createTranslator(locale) {
+  const messages = localeRoot(locale) === 'fa' ? PERSIAN_MESSAGES : {};
+
+  return (message, values = {}) => {
+    let output = messages[message] || message;
+
+    for (const [key, value] of Object.entries(values)) {
+      output = output.replaceAll(`{${key}}`, String(value));
+    }
+
+    return output;
+  };
+}
+
 function element(tag, options = {}, text = null) {
   const node = document.createElement(tag);
 
@@ -41,11 +105,11 @@ function formatNumber(value, locale, maximumFractionDigits = 2) {
   }).format(number);
 }
 
-function formatMoney(value, currency, locale) {
+function formatMoney(value, currency, locale, t) {
   const number = numeric(value);
   if (number === null) return '—';
 
-  if (currency === 'USD') {
+  if (currency === 'USD' && localeRoot(locale) !== 'fa') {
     return new Intl.NumberFormat(locale || 'en', {
       style: 'currency',
       currency: 'USD',
@@ -53,13 +117,14 @@ function formatMoney(value, currency, locale) {
     }).format(number);
   }
 
-  return `${formatNumber(number, locale, 2)} ${currency}`;
+  return `${formatNumber(number, locale, 2)} ${t(currency)}`;
 }
 
 function formatDate(value, locale) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
+
   return new Intl.DateTimeFormat(locale || 'en', {
     dateStyle: 'medium',
     timeStyle: 'short'
@@ -81,16 +146,20 @@ function convertPair(value, currency, rate) {
 }
 
 function tableCell(value, header = false) {
-  return element(header ? 'th' : 'td', {
-    attributes: header ? { scope: 'col' } : {},
-    style: {
-      borderBottom: '1px solid var(--mantine-color-default-border)',
-      padding: '8px',
-      textAlign: 'start',
-      verticalAlign: 'top',
-      whiteSpace: header ? 'nowrap' : 'normal'
-    }
-  }, value);
+  return element(
+    header ? 'th' : 'td',
+    {
+      attributes: header ? { scope: 'col' } : {},
+      style: {
+        borderBottom: '1px solid var(--mantine-color-default-border)',
+        padding: '8px',
+        textAlign: 'start',
+        verticalAlign: 'top',
+        whiteSpace: header ? 'nowrap' : 'normal'
+      }
+    },
+    value
+  );
 }
 
 function tableShell(captionText, headers) {
@@ -101,9 +170,11 @@ function tableShell(captionText, headers) {
   const table = element('table', {
     style: { borderCollapse: 'collapse', minWidth: '760px', width: '100%' }
   });
-  const caption = element('caption', {
-    style: { fontWeight: '600', padding: '8px', textAlign: 'start' }
-  }, captionText);
+  const caption = element(
+    'caption',
+    { style: { fontWeight: '600', padding: '8px', textAlign: 'start' } },
+    captionText
+  );
   const head = element('thead');
   const row = element('tr');
 
@@ -114,13 +185,13 @@ function tableShell(captionText, headers) {
   return { wrapper, table };
 }
 
-function currentPricingTable(pricing, rate, locale) {
-  const { wrapper, table } = tableShell('Current calculated part pricing', [
-    'Pricing source',
-    'Minimum USD',
-    'Maximum USD',
-    'Minimum IRT',
-    'Maximum IRT'
+function currentPricingTable(pricing, rate, locale, t) {
+  const { wrapper, table } = tableShell(t('Current calculated part pricing'), [
+    t('Pricing source'),
+    t('Minimum USD'),
+    t('Maximum USD'),
+    t('Minimum IRT'),
+    t('Maximum IRT')
   ]);
   const body = element('tbody');
   let rowCount = 0;
@@ -130,22 +201,24 @@ function currentPricingTable(pricing, rate, locale) {
     const maximum = pricing[maximumField];
     if (numeric(minimum) === null && numeric(maximum) === null) continue;
 
-    const minimumCurrency = minimumField === 'override_min'
-      ? pricing.override_min_currency || pricing.currency
-      : pricing.currency;
-    const maximumCurrency = maximumField === 'override_max'
-      ? pricing.override_max_currency || pricing.currency
-      : pricing.currency;
+    const minimumCurrency =
+      minimumField === 'override_min'
+        ? pricing.override_min_currency || pricing.currency
+        : pricing.currency;
+    const maximumCurrency =
+      maximumField === 'override_max'
+        ? pricing.override_max_currency || pricing.currency
+        : pricing.currency;
     const minimumPair = convertPair(minimum, minimumCurrency, rate);
     const maximumPair = convertPair(maximum, maximumCurrency, rate);
     const row = element('tr');
 
     row.append(
-      tableCell(label),
-      tableCell(formatMoney(minimumPair.USD, 'USD', locale)),
-      tableCell(formatMoney(maximumPair.USD, 'USD', locale)),
-      tableCell(formatMoney(minimumPair.IRT, 'IRT', locale)),
-      tableCell(formatMoney(maximumPair.IRT, 'IRT', locale))
+      tableCell(t(label)),
+      tableCell(formatMoney(minimumPair.USD, 'USD', locale, t)),
+      tableCell(formatMoney(maximumPair.USD, 'USD', locale, t)),
+      tableCell(formatMoney(minimumPair.IRT, 'IRT', locale, t)),
+      tableCell(formatMoney(maximumPair.IRT, 'IRT', locale, t))
     );
     body.append(row);
     rowCount += 1;
@@ -153,7 +226,7 @@ function currentPricingTable(pricing, rate, locale) {
 
   if (rowCount === 0) {
     const row = element('tr');
-    const empty = tableCell('No calculated pricing is available for this part.');
+    const empty = tableCell(t('No calculated pricing is available for this part.'));
     empty.colSpan = 5;
     row.append(empty);
     body.append(row);
@@ -163,31 +236,40 @@ function currentPricingTable(pricing, rate, locale) {
   return wrapper;
 }
 
-function historyTable(rows, locale) {
-  const { wrapper, table } = tableShell('Latest saved price for each source', [
-    'Source',
-    'Entered value',
-    'USD at save',
-    'IRT at save',
-    'IRT per USD',
-    'Captured'
+function conversionStatus(status, t) {
+  const labels = {
+    converted: 'Converted',
+    missing_rate: 'Missing exchange rate',
+    unsupported_currency: 'Unsupported currency'
+  };
+
+  return t(labels[status] || String(status).replaceAll('_', ' '));
+}
+
+function historyTable(rows, locale, t) {
+  const { wrapper, table } = tableShell(t('Latest saved price for each source'), [
+    t('Source'),
+    t('Entered value'),
+    t('USD at save'),
+    t('IRT at save'),
+    t('IRT per USD'),
+    t('Captured')
   ]);
   const body = element('tbody');
 
   for (const record of rows) {
     const row = element('tr');
-    const source = record.conversion_status === 'converted'
-      ? record.source
-      : `${record.source} (${record.conversion_status.replaceAll('_', ' ')})`;
+    const source =
+      record.conversion_status === 'converted'
+        ? record.source
+        : `${record.source} (${conversionStatus(record.conversion_status, t)})`;
     row.append(
       tableCell(source),
-      tableCell(formatMoney(
-        record.original_amount,
-        record.original_currency,
-        locale
-      )),
-      tableCell(formatMoney(record.amount_usd, 'USD', locale)),
-      tableCell(formatMoney(record.amount_irt, 'IRT', locale)),
+      tableCell(
+        formatMoney(record.original_amount, record.original_currency, locale, t)
+      ),
+      tableCell(formatMoney(record.amount_usd, 'USD', locale, t)),
+      tableCell(formatMoney(record.amount_irt, 'IRT', locale, t)),
       tableCell(formatNumber(record.usd_to_irt_rate, locale, 2)),
       tableCell(formatDate(record.captured_at, locale))
     );
@@ -196,7 +278,7 @@ function historyTable(rows, locale) {
 
   if (rows.length === 0) {
     const row = element('tr');
-    const empty = tableCell('No saved price snapshots are available yet.');
+    const empty = tableCell(t('No saved price snapshots are available yet.'));
     empty.colSpan = 6;
     row.append(empty);
     body.append(row);
@@ -206,9 +288,9 @@ function historyTable(rows, locale) {
   return wrapper;
 }
 
-function summary(exchange, pricing, rate, locale) {
+function summary(exchange, pricing, rate, locale, t) {
   const box = element('section', {
-    attributes: { 'aria-label': 'Exchange rate summary' },
+    attributes: { 'aria-label': t('Exchange rate summary') },
     style: {
       border: '1px solid var(--mantine-color-default-border)',
       borderRadius: 'var(--mantine-radius-sm)',
@@ -216,31 +298,45 @@ function summary(exchange, pricing, rate, locale) {
     }
   });
   const rateText = rate
-    ? `1 USD = ${formatMoney(rate, 'IRT', locale)}`
-    : 'No applied USD to IRT rate is available.';
+    ? t('1 USD = {rate}', { rate: formatMoney(rate, 'IRT', locale, t) })
+    : t('No applied USD to IRT rate is available.');
   box.append(
     element('strong', {}, rateText),
-    element('div', {
-      style: { color: 'var(--mantine-color-dimmed)', marginTop: '4px' }
-    }, `Exchange rate updated: ${formatDate(exchange.updated, locale)}`),
-    element('div', {
-      style: { color: 'var(--mantine-color-dimmed)' }
-    }, `Part pricing updated: ${formatDate(pricing.updated, locale)}`)
+    element(
+      'div',
+      { style: { color: 'var(--mantine-color-dimmed)', marginTop: '4px' } },
+      t('Exchange rate updated: {date}', {
+        date: formatDate(exchange.updated, locale)
+      })
+    ),
+    element(
+      'div',
+      { style: { color: 'var(--mantine-color-dimmed)' } },
+      t('Part pricing updated: {date}', {
+        date: formatDate(pricing.updated, locale)
+      })
+    )
   );
   return box;
 }
 
-function renderError(container, error) {
+function renderError(container, error, t) {
   const detail = error?.response?.data?.detail || error?.message || 'The request failed.';
-  container.replaceChildren(element('div', {
-    attributes: { role: 'alert' },
-    style: {
-      border: '1px solid var(--mantine-color-red-6)',
-      borderRadius: 'var(--mantine-radius-sm)',
-      color: 'var(--mantine-color-red-7)',
-      padding: '12px'
-    }
-  }, `Could not load USD / IRT pricing: ${detail}`));
+  container.replaceChildren(
+    element(
+      'div',
+      {
+        attributes: { role: 'alert' },
+        style: {
+          border: '1px solid var(--mantine-color-red-6)',
+          borderRadius: 'var(--mantine-radius-sm)',
+          color: 'var(--mantine-color-red-7)',
+          padding: '12px'
+        }
+      },
+      t('Could not load USD / IRT pricing: {detail}', { detail: t(String(detail)) })
+    )
+  );
 }
 
 export async function renderPanel(container, context) {
@@ -248,9 +344,16 @@ export async function renderPanel(container, context) {
 
   const urls = context.context || {};
   const locale = context.locale || 'en';
-  container.replaceChildren(element('p', {
-    attributes: { role: 'status', 'aria-live': 'polite' }
-  }, 'Loading USD / IRT pricing…'));
+  const t = createTranslator(locale);
+  container.dir = localeRoot(locale) === 'fa' ? 'rtl' : 'ltr';
+  container.lang = locale;
+  container.replaceChildren(
+    element(
+      'p',
+      { attributes: { role: 'status', 'aria-live': 'polite' } },
+      t('Loading USD / IRT pricing…')
+    )
+  );
 
   try {
     const [pricingResponse, exchangeResponse, historyResponse] = await Promise.all([
@@ -266,16 +369,20 @@ export async function renderPanel(container, context) {
     const rateValue = numeric(exchange.exchange_rates?.IRT);
     const rate = rateValue && rateValue > 0 ? rateValue : null;
     const root = element('div', {
+      attributes: {
+        dir: localeRoot(locale) === 'fa' ? 'rtl' : 'ltr',
+        lang: locale
+      },
       style: { display: 'grid', gap: '16px', padding: '4px' }
     });
 
     root.append(
-      summary(exchange, pricing, rate, locale),
-      currentPricingTable(pricing, rate, locale),
-      historyTable(history, locale)
+      summary(exchange, pricing, rate, locale, t),
+      currentPricingTable(pricing, rate, locale, t),
+      historyTable(history, locale, t)
     );
     container.replaceChildren(root);
   } catch (error) {
-    if (container.isConnected) renderError(container, error);
+    if (container.isConnected) renderError(container, error, t);
   }
 }

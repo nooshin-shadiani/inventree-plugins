@@ -21,6 +21,8 @@ from plugin.base.event.events import batch_events
 from rest_framework import serializers
 from stock.models import StockItem, batch_tracking_entries
 
+from .localization import translate as _
+
 REQUIRED_COLUMNS = ("stock_item_id", "operation", "quantity")
 OPTIONAL_COLUMNS = ("notes",)
 ALL_COLUMNS = (*REQUIRED_COLUMNS, *OPTIONAL_COLUMNS)
@@ -44,7 +46,9 @@ class SpreadsheetRowSerializer(serializers.Serializer):
         if attrs["operation"] in {"add", "remove"} and attrs["quantity"] <= 0:
             raise serializers.ValidationError(
                 {
-                    "quantity": "Quantity must be greater than zero for add and remove operations."
+                    "quantity": _(
+                        "Quantity must be greater than zero for add and remove operations."
+                    )
                 }
             )
 
@@ -124,11 +128,11 @@ class AdjustmentRow:
 def _load_dataset(upload) -> tablib.Dataset:
     """Load an XLSX upload after applying InvenTree's importer limits."""
     if Path(upload.name).suffix.lower() != ".xlsx":
-        raise serializers.ValidationError({"file": ["Upload an .xlsx file."]})
+        raise serializers.ValidationError({"file": [_("Upload an .xlsx file.")]})
 
     if upload.size > IMPORTER_MAX_FILE_SIZE:
         raise serializers.ValidationError(
-            {"file": ["Data file exceeds the maximum size limit."]}
+            {"file": [_("Data file exceeds the maximum size limit.")]}
         )
 
     try:
@@ -144,17 +148,21 @@ def _load_dataset(upload) -> tablib.Dataset:
         ValueError,
     ) as exc:
         raise serializers.ValidationError(
-            {"file": ["Could not read the XLSX file."]}
+            {"file": [_("Could not read the XLSX file.")]}
         ) from exc
 
     if not dataset.headers:
-        raise serializers.ValidationError({"file": ["Data file contains no headers."]})
+        raise serializers.ValidationError(
+            {"file": [_("Data file contains no headers.")]}
+        )
 
     if len(dataset.headers) > IMPORTER_MAX_COLS:
-        raise serializers.ValidationError({"file": ["Data file has too many columns."]})
+        raise serializers.ValidationError(
+            {"file": [_("Data file has too many columns.")]}
+        )
 
     if len(dataset) > IMPORTER_MAX_ROWS:
-        raise serializers.ValidationError({"file": ["Data file has too many rows."]})
+        raise serializers.ValidationError({"file": [_("Data file has too many rows.")]})
 
     return dataset
 
@@ -173,7 +181,12 @@ def _parse_rows(upload) -> list[AdjustmentRow]:
     )
     if duplicates:
         raise serializers.ValidationError(
-            {"file": [f"Duplicate column: {header}" for header in duplicates]}
+            {
+                "file": [
+                    _("Duplicate column: {column}").format(column=header)
+                    for header in duplicates
+                ]
+            }
         )
 
     missing = [
@@ -181,7 +194,12 @@ def _parse_rows(upload) -> list[AdjustmentRow]:
     ]
     if missing:
         raise serializers.ValidationError(
-            {"file": [f"Missing required column: {column}" for column in missing]}
+            {
+                "file": [
+                    _("Missing required column: {column}").format(column=column)
+                    for column in missing
+                ]
+            }
         )
 
     indexes = {
@@ -216,7 +234,7 @@ def _parse_rows(upload) -> list[AdjustmentRow]:
 
     if not rows:
         raise serializers.ValidationError(
-            {"file": ["Data file contains no adjustment rows."]}
+            {"file": [_("Data file contains no adjustment rows.")]}
         )
 
     first_rows = {}
@@ -225,7 +243,7 @@ def _parse_rows(upload) -> list[AdjustmentRow]:
             continue
 
         if first := first_rows.get(row.stock_item_id):
-            message = "Stock item appears more than once; combine it into one row."
+            message = _("Stock item appears more than once; combine it into one row.")
             if message not in first.errors:
                 first.errors.append(message)
             row.errors.append(message)
@@ -242,7 +260,9 @@ def _calculate_result(row: AdjustmentRow, item: StockItem) -> None:
             row.resulting_quantity = Decimal(1)
         else:
             row.errors.append(
-                "Serialized stock items only support a count operation with quantity 1."
+                _(
+                    "Serialized stock items only support a count operation with quantity 1."
+                )
             )
         return
 
@@ -250,7 +270,7 @@ def _calculate_result(row: AdjustmentRow, item: StockItem) -> None:
         row.resulting_quantity = item.quantity + row.quantity
     elif row.operation == "remove":
         if row.quantity > item.quantity:
-            row.errors.append("Removal quantity exceeds available stock.")
+            row.errors.append(_("Removal quantity exceeds available stock."))
         else:
             row.resulting_quantity = item.quantity - row.quantity
     else:
@@ -262,7 +282,9 @@ def _calculate_result(row: AdjustmentRow, item: StockItem) -> None:
     try:
         StockItem._meta.get_field("quantity").clean(row.resulting_quantity, item)
     except DjangoValidationError:
-        row.errors.append("Resulting quantity exceeds the supported stock precision.")
+        row.errors.append(
+            _("Resulting quantity exceeds the supported stock precision.")
+        )
 
 
 def _attach_stock_items(rows: list[AdjustmentRow], lock: bool) -> None:
@@ -288,7 +310,7 @@ def _attach_stock_items(rows: list[AdjustmentRow], lock: bool) -> None:
 
         item = items.get(row.stock_item_id)
         if item is None:
-            row.errors.append("Stock item does not exist.")
+            row.errors.append(_("Stock item does not exist."))
             continue
 
         row.item = item
@@ -297,7 +319,7 @@ def _attach_stock_items(rows: list[AdjustmentRow], lock: bool) -> None:
         if not allow_out_of_stock and not item.is_in_stock(
             check_status=False, check_quantity=False, check_in_production=False
         ):
-            row.errors.append("Stock item is not currently in stock.")
+            row.errors.append(_("Stock item is not currently in stock."))
             continue
 
         _calculate_result(row, item)

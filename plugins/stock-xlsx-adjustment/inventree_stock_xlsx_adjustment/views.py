@@ -12,13 +12,14 @@ from rest_framework.views import APIView
 from stock.models import StockItem
 from users.permissions import check_user_permission
 
+from .localization import translate, translate_lazy
 from .operations import apply_adjustments, preview_adjustments, template_workbook
 
 
 class StockItemChangePermission(BasePermission):
     """Require InvenTree's stock-item change permission."""
 
-    message = "Stock item change permission is required."
+    message = translate_lazy("Stock item change permission is required.")
 
     def has_permission(self, request, view):
         """Return whether the requesting user can change stock items."""
@@ -59,7 +60,7 @@ class StockAdjustmentPreviewView(StockAdjustmentView):
         upload = request.FILES.get("file")
         if upload is None:
             return Response(
-                {"file": ["An XLSX file is required."]},
+                {"file": [translate("An XLSX file is required.")]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -76,7 +77,7 @@ class StockAdjustmentApplyView(StockAdjustmentView):
         upload = request.FILES.get("file")
         if upload is None:
             return Response(
-                {"file": ["An XLSX file is required."]},
+                {"file": [translate("An XLSX file is required.")]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

@@ -1,13 +1,13 @@
 """Plugin registration for stock XLSX adjustments."""
 
 from django.urls import path, reverse
-from django.utils.translation import gettext_lazy as _
 from plugin import InvenTreePlugin
 from plugin.mixins import UrlsMixin, UserInterfaceMixin
 from stock.models import StockItem
 from users.permissions import check_user_permission, check_user_role
 
 from . import PLUGIN_VERSION
+from .localization import translate_lazy as _
 
 
 class StockXlsxAdjustmentPlugin(  # pyrefly: ignore [inconsistent-inheritance]
