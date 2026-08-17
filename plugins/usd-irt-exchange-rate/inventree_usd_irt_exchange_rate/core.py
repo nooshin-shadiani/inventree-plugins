@@ -155,7 +155,7 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
         ]
 
     def get_ui_panels(self, request, context, **kwargs):
-        """Show current and saved USD/IRT prices on each part page."""
+        """Show immutable saved USD/IRT prices on each part page."""
         if context.get("target_model") != "part" or not check_user_permission(
             request.user, Part, "view"
         ):
@@ -172,15 +172,13 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
         return [
             {
                 "key": "usd-irt-pricing",
-                "title": _("USD / IRT Pricing"),
+                "title": _("Saved USD / IRT Prices"),
                 "description": _(
-                    "Current part pricing and immutable saved-price conversions"
+                    "USD and IRT values frozen when each source price was saved"
                 ),
                 "icon": "ti:currency-dollar:outline",
                 "source": self.plugin_static_file("dual_currency_pricing.js"),
                 "context": {
-                    "pricing_url": reverse("api-part-pricing", kwargs={"pk": part_id}),
-                    "exchange_url": reverse("api-currency-exchange"),
                     "history_url": reverse(
                         f"plugin:{self.slug}:part-prices",
                         kwargs={"part_id": part_id},

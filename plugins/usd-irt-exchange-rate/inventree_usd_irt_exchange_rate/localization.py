@@ -18,9 +18,9 @@ PERSIAN_MESSAGES: dict[str, str] = {
     "Manual USD to IRT rate": "نرخ دستی دلار به تومان",
     "Iranian tomans per one US dollar": "تومان ایران به ازای یک دلار آمریکا",
     "IRT per USD": "تومان به ازای دلار",
-    "USD / IRT Pricing": "قیمت‌گذاری دلار و تومان",
-    "Current part pricing and immutable saved-price conversions": (
-        "قیمت فعلی قطعه و تبدیل‌های ذخیره‌شده و تغییرناپذیر"
+    "Saved USD / IRT Prices": "قیمت‌های ذخیره‌شدهٔ دلار و تومان",
+    "USD and IRT values frozen when each source price was saved": (
+        "مقادیر دلار و تومان که هنگام ذخیرهٔ هر قیمت ثابت شده‌اند"
     ),
     "Part view permission is required.": (
         "برای مشاهدهٔ این اطلاعات، دسترسی مشاهدهٔ قطعه لازم است."

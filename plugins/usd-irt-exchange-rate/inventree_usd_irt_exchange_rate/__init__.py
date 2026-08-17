@@ -2,7 +2,7 @@
 
 from moneyed import CURRENCIES, add_currency
 
-PLUGIN_VERSION = "1.3.2"
+PLUGIN_VERSION = "1.3.3"
 
 if "IRT" not in CURRENCIES:
     add_currency(code="IRT", numeric=None, name="Iranian toman")

@@ -129,7 +129,7 @@ class IranianCurrencyExchangeTests(SimpleTestCase):
             "https://www.tgju.org/currency",
             headers={
                 "Accept": "text/html",
-                "User-Agent": "InvenTree USD IRT Exchange Rate/1.3.2",
+                "User-Agent": "InvenTree USD IRT Exchange Rate/1.3.3",
             },
             timeout=10,
         )

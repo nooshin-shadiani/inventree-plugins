@@ -8,8 +8,8 @@ USD and the Iranian toman (IRT). It supports:
   XPath and converts the quoted rial value to toman.
 - Automatic updates every three hours through InvenTree's existing Django-Q2
   scheduler.
-- A part-page panel which shows current price ranges in USD and IRT side by
-  side, together with the latest immutable conversion for each saved price.
+- A part-page panel which shows the latest immutable USD and IRT pair for each
+  saved price source. It never reconverts saved prices using a later rate.
 - IRT choices in every shared money field, including InvenTree's exceptional
   part-pricing override selectors which otherwise freeze their choices early.
 - Immutable USD and IRT values, together with the applied rate, whenever a
@@ -139,15 +139,19 @@ Administrators can inspect the append-only records under **USD / IRT Exchange
 Rate > Price exchange snapshots** in the Django administration site. The plugin
 disables adding, editing, and deleting these records through that interface.
 
-Authorized users can open **USD / IRT Pricing** on any part page. The panel
-shows every available calculated price range in parallel USD and IRT columns,
-plus the latest saved snapshot for each price source. Historical rows are
+Authorized users can open **Saved USD / IRT Prices** on any part page. The
+panel shows only the latest saved snapshot for each price source. It does not
+display a live-rate conversion of calculated part pricing, so later exchange
+rate updates cannot change the paired price shown there. Historical rows are
 filtered through the requesting user's normal InvenTree model permissions, so
 supplier prices are not exposed to users who cannot view supplier pricing.
 
-Snapshot collection starts only after App Integration is enabled, the plugin is
-active, and its migration is applied. Existing prices cannot be given truthful
-historical exchange rates, so the plugin does not backfill them.
+Snapshot collection starts after App Integration is enabled, the plugin is
+active, and its migration is applied. The version 1.3.3 migration freezes each
+existing price using the rate applied at upgrade time. It cannot reconstruct a
+rate from before the plugin was installed; the captured timestamp identifies
+when that one-time backfill conversion was frozen. Future price saves always
+use the rate applied at the exact time of that save.
 
 The standard InvenTree UI, API serializers, and spreadsheet importer use normal
 model saves and are covered. Direct `bulk_create`, `bulk_update`, raw SQL, and
