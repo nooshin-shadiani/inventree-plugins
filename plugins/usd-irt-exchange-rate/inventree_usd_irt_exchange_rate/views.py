@@ -181,7 +181,6 @@ class PurchaseOrderPriceSnapshotView(APIView):
 
             line = lines[snapshot.object_id]
             part = line.get_base_part()
-            quantity = snapshot.quantity
             result = _snapshot_result(snapshot)
             result.update(
                 {
@@ -190,21 +189,6 @@ class PurchaseOrderPriceSnapshotView(APIView):
                     "part_name": part.name if part else None,
                     "supplier_part": line.part_id,
                     "supplier_sku": line.part.SKU if line.part else None,
-                    "total_original_amount": _decimal_text(
-                        snapshot.original_amount * quantity
-                        if quantity is not None
-                        else None
-                    ),
-                    "total_amount_usd": _decimal_text(
-                        snapshot.amount_usd * quantity
-                        if snapshot.amount_usd is not None and quantity is not None
-                        else None
-                    ),
-                    "total_amount_irt": _decimal_text(
-                        snapshot.amount_irt * quantity
-                        if snapshot.amount_irt is not None and quantity is not None
-                        else None
-                    ),
                 }
             )
             results.append(result)
