@@ -25,7 +25,11 @@ PERSIAN_MESSAGES: dict[str, str] = {
     "Part view permission is required.": (
         "برای مشاهدهٔ این اطلاعات، دسترسی مشاهدهٔ قطعه لازم است."
     ),
+    "Purchase order view permission is required.": (
+        "برای مشاهدهٔ این اطلاعات، دسترسی مشاهدهٔ سفارش خرید لازم است."
+    ),
     "Supplier price": "قیمت تأمین‌کننده",
+    "Purchase order line": "ردیف سفارش خرید",
     "Sale price": "قیمت فروش",
     "Internal price": "قیمت داخلی",
     "Part pricing": "قیمت‌گذاری قطعه",

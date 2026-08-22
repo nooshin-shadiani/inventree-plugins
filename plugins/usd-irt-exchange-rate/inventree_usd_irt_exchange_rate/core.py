@@ -10,6 +10,7 @@ from common.settings import get_global_setting
 from django.core.exceptions import ValidationError
 from django.urls import path, reverse
 from lxml import etree, html
+from order.models import PurchaseOrder, PurchaseOrderLineItem
 from part.models import Part
 from plugin import InvenTreePlugin
 from plugin.mixins import (
@@ -144,29 +145,56 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
 
     def setup_urls(self):
         """Expose read-only historical prices to the plugin UI."""
-        from .views import PartPriceSnapshotView  # noqa: PLC0415
+        from .views import (  # noqa: PLC0415
+            PartPriceSnapshotView,
+            PurchaseOrderPriceSnapshotView,
+        )
 
         return [
             path(
                 "part/<int:part_id>/prices/",
                 PartPriceSnapshotView.as_view(),
                 name="part-prices",
-            )
+            ),
+            path(
+                "purchase-order/<int:order_id>/prices/",
+                PurchaseOrderPriceSnapshotView.as_view(),
+                name="purchase-order-prices",
+            ),
         ]
 
     def get_ui_panels(self, request, context, **kwargs):
-        """Show immutable saved USD/IRT prices on each part page."""
-        if context.get("target_model") != "part" or not check_user_permission(
-            request.user, Part, "view"
-        ):
-            return []
+        """Show immutable saved USD/IRT prices on relevant detail pages."""
+        target_model = context.get("target_model")
 
         try:
-            part_id = int(context.get("target_id"))
+            target_id = int(context.get("target_id"))
         except (TypeError, ValueError):
             return []
 
-        if not Part.objects.filter(pk=part_id).exists():
+        history_url = None
+
+        if (
+            target_model == "part"
+            and check_user_permission(request.user, Part, "view")
+            and Part.objects.filter(pk=target_id).exists()
+        ):
+            history_url = reverse(
+                f"plugin:{self.slug}:part-prices",
+                kwargs={"part_id": target_id},
+            )
+        elif (
+            target_model == "purchaseorder"
+            and check_user_permission(request.user, PurchaseOrder, "view")
+            and check_user_permission(request.user, PurchaseOrderLineItem, "view")
+            and PurchaseOrder.objects.filter(pk=target_id).exists()
+        ):
+            history_url = reverse(
+                f"plugin:{self.slug}:purchase-order-prices",
+                kwargs={"order_id": target_id},
+            )
+
+        if history_url is None:
             return []
 
         return [
@@ -179,10 +207,8 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
                 "icon": "ti:currency-dollar:outline",
                 "source": self.plugin_static_file("dual_currency_pricing.js"),
                 "context": {
-                    "history_url": reverse(
-                        f"plugin:{self.slug}:part-prices",
-                        kwargs={"part_id": part_id},
-                    ),
+                    "history_url": history_url,
+                    "view": target_model,
                 },
             }
         ]

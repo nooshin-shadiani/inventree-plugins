@@ -11,6 +11,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from djmoney.contrib.exchange.models import Rate
 from InvenTree.ready import canAppAccessDatabase, isRunningMigrations
+from order.models import PurchaseOrderLineItem
 from part.models import PartInternalPriceBreak, PartPricing, PartSellPriceBreak
 
 from .models import PriceExchangeSnapshot
@@ -109,7 +110,7 @@ def _capture_price(instance, *, price_field, part_id, quantity=None):
         usd_to_irt_rate=rate,
         amount_usd=amount_usd,
         amount_irt=amount_irt,
-        source_updated_at=instance.updated,
+        source_updated_at=getattr(instance, "updated", None),
         rate_updated_at=rate_updated_at,
         conversion_status=conversion_status,
     )
@@ -127,6 +128,9 @@ def _capture_prices(instance, *, price_fields, supplier_price=False):
             )
 
             if locked_instance is None:
+                return
+
+            if supplier_price and locked_instance.part is None:
                 return
 
             part_id = (
@@ -175,6 +179,23 @@ def capture_price_break(sender, instance, raw=False, **kwargs):
         instance,
         price_fields=("price",),
         supplier_price=sender is SupplierPriceBreak,
+    )
+
+
+@receiver(
+    post_save,
+    sender=PurchaseOrderLineItem,
+    dispatch_uid="inventree_usd_irt_snapshot_purchase_order_price",
+)
+def capture_purchase_order_price(sender, instance, raw=False, **kwargs):
+    """Capture the unit price saved against a purchase-order line item."""
+    if not _can_capture(raw=raw):
+        return
+
+    _capture_prices(
+        instance,
+        price_fields=("purchase_price",),
+        supplier_price=True,
     )
 
 
