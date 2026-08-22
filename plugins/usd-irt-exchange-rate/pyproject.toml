@@ -75,6 +75,7 @@ ignore-missing-imports = [
     "django.*",
     "djmoney.*",
     "InvenTree.*",
+    "order.*",
     "part.*",
     "plugin",
     "plugin.*",
