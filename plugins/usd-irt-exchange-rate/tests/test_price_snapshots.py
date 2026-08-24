@@ -5,6 +5,7 @@ from unittest import mock
 
 import company.models
 import part.models
+import stock.models
 from django.contrib.contenttypes.models import ContentType
 from django.db import OperationalError
 from djmoney.contrib.exchange.models import ExchangeBackend, Rate
@@ -74,6 +75,43 @@ class PriceExchangeSnapshotTests(InvenTreeTestCase):
         self.assertEqual(snapshot.source_updated_at, price_break.updated)
         self.assertEqual(snapshot.rate_updated_at, backend.last_update)
         self.assertEqual(snapshot.conversion_status, "converted")
+
+    def test_stock_item_purchase_price_captures_applied_rate(self):
+        """Freeze the unit purchase price saved on a physical stock item."""
+        backend = self.create_applied_rate()
+
+        item = stock.models.StockItem.objects.create(
+            part=self.part,
+            quantity=7,
+            purchase_price=Money("12", "USD"),
+        )
+
+        snapshot = PriceExchangeSnapshot.objects.get(
+            content_type=ContentType.objects.get_for_model(item),
+            object_id=item.pk,
+            price_field="purchase_price",
+        )
+        self.assertEqual(snapshot.part_id, self.part.pk)
+        self.assertEqual(snapshot.quantity, Decimal("7"))
+        self.assertEqual(snapshot.original_amount, Decimal("12"))
+        self.assertEqual(snapshot.original_currency, "USD")
+        self.assertEqual(snapshot.usd_to_irt_rate, Decimal("187800"))
+        self.assertEqual(snapshot.amount_usd, Decimal("12"))
+        self.assertEqual(snapshot.amount_irt, Decimal("2253600"))
+        self.assertEqual(snapshot.source_updated_at, item.updated)
+        self.assertEqual(snapshot.rate_updated_at, backend.last_update)
+        self.assertEqual(snapshot.conversion_status, "converted")
+
+        item.quantity = Decimal("5")
+        item.save()
+        self.assertEqual(
+            PriceExchangeSnapshot.objects.filter(
+                content_type=ContentType.objects.get_for_model(item),
+                object_id=item.pk,
+                price_field="purchase_price",
+            ).count(),
+            1,
+        )
 
     def test_price_and_rate_changes_append_without_rewriting_history(self):
         """Keep the first conversion immutable when a later price is saved."""

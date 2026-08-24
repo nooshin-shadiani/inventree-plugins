@@ -13,6 +13,7 @@ from djmoney.contrib.exchange.models import Rate
 from InvenTree.ready import canAppAccessDatabase, isRunningMigrations
 from order.models import PurchaseOrderLineItem
 from part.models import PartInternalPriceBreak, PartPricing, PartSellPriceBreak
+from stock.models import StockItem
 
 from .models import PriceExchangeSnapshot
 
@@ -53,7 +54,14 @@ def _can_capture(*, raw):
     )
 
 
-def _capture_price(instance, *, price_field, part_id, quantity=None):
+def _capture_price(
+    instance,
+    *,
+    price_field,
+    part_id,
+    quantity=None,
+    compare_quantity=True,
+):
     """Append a snapshot unless this exact price state is already current."""
     price = getattr(instance, price_field, None)
 
@@ -78,7 +86,7 @@ def _capture_price(instance, *, price_field, part_id, quantity=None):
         latest is not None
         and latest.original_amount == original_amount
         and latest.original_currency == original_currency
-        and latest.quantity == quantity
+        and (not compare_quantity or latest.quantity == quantity)
     ):
         return
 
@@ -116,7 +124,13 @@ def _capture_price(instance, *, price_field, part_id, quantity=None):
     )
 
 
-def _capture_prices(instance, *, price_fields, supplier_price=False):
+def _capture_prices(
+    instance,
+    *,
+    price_fields,
+    supplier_price=False,
+    compare_quantity=True,
+):
     """Serialize and isolate auxiliary snapshot writes from the source save."""
     try:
         with transaction.atomic():
@@ -146,6 +160,7 @@ def _capture_prices(instance, *, price_fields, supplier_price=False):
                     price_field=price_field,
                     part_id=part_id,
                     quantity=quantity,
+                    compare_quantity=compare_quantity,
                 )
     except DatabaseError:
         logger.exception(
@@ -196,6 +211,23 @@ def capture_purchase_order_price(sender, instance, raw=False, **kwargs):
         instance,
         price_fields=("purchase_price",),
         supplier_price=True,
+    )
+
+
+@receiver(
+    post_save,
+    sender=StockItem,
+    dispatch_uid="inventree_usd_irt_snapshot_stock_item_purchase_price",
+)
+def capture_stock_item_purchase_price(sender, instance, raw=False, **kwargs):
+    """Capture the acquisition price saved on a physical stock item."""
+    if not _can_capture(raw=raw):
+        return
+
+    _capture_prices(
+        instance,
+        price_fields=("purchase_price",),
+        compare_quantity=False,
     )
 
 
