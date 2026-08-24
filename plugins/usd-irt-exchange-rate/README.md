@@ -157,12 +157,15 @@ disables adding, editing, and deleting these records through that interface.
 
 Authorized users can open **Saved USD / IRT Prices** on any part, purchase
 order, or Stock Item page. The part panel shows the latest snapshot for each
-visible price source. The purchase-order panel shows each line's item, quantity,
-entered unit price, frozen USD and IRT unit values, applied rate, and capture
-time. The Stock Item panel shows that physical lot's saved unit purchase price
-and its frozen USD/IRT pair. It does not display a live-rate conversion, so
-later exchange-rate updates cannot change the paired price shown there. Rows
-are filtered through the requesting user's normal InvenTree model permissions.
+visible catalog price source: supplier, sale, internal, and manual override
+prices. Purchase-order and Stock Item transaction prices are intentionally
+excluded from the part panel and remain on their dedicated panels. The
+purchase-order panel shows each line's item, quantity, entered unit price,
+frozen USD and IRT unit values, applied rate, and capture time. The Stock Item
+panel shows that physical lot's saved unit purchase price and its frozen USD/IRT
+pair. It does not display a live-rate conversion, so later exchange-rate updates
+cannot change the paired price shown there. Rows are filtered through the
+requesting user's normal InvenTree model permissions.
 
 Snapshot collection starts after App Integration is enabled, the plugin is
 active, and its migrations are applied. The version 1.3.3 migration freezes
