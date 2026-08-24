@@ -80,5 +80,6 @@ ignore-missing-imports = [
     "plugin",
     "plugin.*",
     "rest_framework.*",
+    "stock.*",
     "users.*",
 ]
