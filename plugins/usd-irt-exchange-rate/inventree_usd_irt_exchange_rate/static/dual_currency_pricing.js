@@ -30,6 +30,8 @@ const PERSIAN_MESSAGES = Object.freeze({
   'Loading USD / IRT pricing…': 'در حال بارگذاری قیمت دلار و تومان…',
   'Part view permission is required.':
     'برای مشاهدهٔ این اطلاعات، دسترسی مشاهدهٔ قطعه لازم است.',
+  'Stock item view permission is required.':
+    'برای مشاهدهٔ این اطلاعات، دسترسی مشاهدهٔ موجودی لازم است.',
   USD: 'دلار (USD)',
   IRT: 'تومان (IRT)'
 });

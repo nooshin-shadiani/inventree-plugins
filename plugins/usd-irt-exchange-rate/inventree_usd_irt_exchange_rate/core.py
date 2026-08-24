@@ -21,6 +21,7 @@ from plugin.mixins import (
     UrlsMixin,
     UserInterfaceMixin,
 )
+from stock.models import StockItem
 from users.permissions import check_user_permission
 
 from . import PLUGIN_VERSION
@@ -148,6 +149,7 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
         from .views import (  # noqa: PLC0415
             PartPriceSnapshotView,
             PurchaseOrderPriceSnapshotView,
+            StockItemPriceSnapshotView,
         )
 
         return [
@@ -160,6 +162,11 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
                 "purchase-order/<int:order_id>/prices/",
                 PurchaseOrderPriceSnapshotView.as_view(),
                 name="purchase-order-prices",
+            ),
+            path(
+                "stock-item/<int:stock_item_id>/prices/",
+                StockItemPriceSnapshotView.as_view(),
+                name="stock-item-prices",
             ),
         ]
 
@@ -192,6 +199,15 @@ class IranianCurrencyExchange(  # pyrefly: ignore [inconsistent-inheritance]
             history_url = reverse(
                 f"plugin:{self.slug}:purchase-order-prices",
                 kwargs={"order_id": target_id},
+            )
+        elif (
+            target_model == "stockitem"
+            and check_user_permission(request.user, StockItem, "view")
+            and StockItem.objects.filter(pk=target_id).exists()
+        ):
+            history_url = reverse(
+                f"plugin:{self.slug}:stock-item-prices",
+                kwargs={"stock_item_id": target_id},
             )
 
         if history_url is None:

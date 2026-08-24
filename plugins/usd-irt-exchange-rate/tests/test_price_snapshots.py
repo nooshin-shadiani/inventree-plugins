@@ -11,9 +11,10 @@ from django.db import OperationalError
 from djmoney.contrib.exchange.models import ExchangeBackend, Rate
 from djmoney.money import Money
 from InvenTree.unit_test import InvenTreeTestCase
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from inventree_usd_irt_exchange_rate import core as _currency_registration  # noqa: F401
-from inventree_usd_irt_exchange_rate import signals
+from inventree_usd_irt_exchange_rate import signals, views
 from inventree_usd_irt_exchange_rate.models import PriceExchangeSnapshot
 
 
@@ -112,6 +113,40 @@ class PriceExchangeSnapshotTests(InvenTreeTestCase):
             ).count(),
             1,
         )
+
+    def test_stock_item_price_endpoint_returns_its_frozen_pair(self):
+        """Return only the saved purchase-price pair for the requested item."""
+        self.create_applied_rate()
+        item = stock.models.StockItem.objects.create(
+            part=self.part,
+            quantity=4,
+            purchase_price=Money("15", "USD"),
+        )
+        other_item = stock.models.StockItem.objects.create(
+            part=self.part,
+            quantity=2,
+            purchase_price=Money("20", "USD"),
+        )
+        self.user.is_superuser = True
+        self.user.save()
+        request = APIRequestFactory().get("/")
+        force_authenticate(request, user=self.user)
+
+        response = views.StockItemPriceSnapshotView.as_view()(
+            request,
+            stock_item_id=item.pk,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["stock_item"], item.pk)
+        self.assertEqual(len(response.data["results"]), 1)
+        result = response.data["results"][0]
+        self.assertEqual(result["source"], f"Stock item #{item.pk} at quantity 4")
+        self.assertEqual(result["original_amount"], "15.000000")
+        self.assertEqual(result["original_currency"], "USD")
+        self.assertEqual(result["amount_usd"], "15.000000000000")
+        self.assertEqual(result["amount_irt"], "2817000.000000000000")
+        self.assertNotEqual(response.data["stock_item"], other_item.pk)
 
     def test_price_and_rate_changes_append_without_rewriting_history(self):
         """Keep the first conversion immutable when a later price is saved."""

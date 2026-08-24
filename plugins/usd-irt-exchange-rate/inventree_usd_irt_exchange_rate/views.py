@@ -1,4 +1,4 @@
-"""Read-only API views for dual-currency part pricing."""
+"""Read-only API views for immutable dual-currency pricing."""
 
 from typing import ClassVar
 
@@ -10,6 +10,7 @@ from part.models import Part
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from stock.models import StockItem
 from users.permissions import check_user_permission
 
 from .localization import translate, translate_lazy
@@ -17,6 +18,7 @@ from .localization import translate, translate_lazy
 SOURCE_LABELS = {
     "supplierpricebreak": "Supplier price",
     "purchaseorderlineitem": "Purchase order line",
+    "stockitem": "Stock item",
     "partsellpricebreak": "Sale price",
     "partinternalpricebreak": "Internal price",
     "partpricing": "Part pricing",
@@ -24,6 +26,7 @@ SOURCE_LABELS = {
 
 FIELD_LABELS = {
     "price": "Price",
+    "purchase_price": "Purchase price",
     "override_min": "Minimum override",
     "override_max": "Maximum override",
 }
@@ -51,9 +54,25 @@ class PurchaseOrderViewPermission(BasePermission):
         ) and check_user_permission(request.user, PurchaseOrderLineItem, "view")
 
 
+class StockItemViewPermission(BasePermission):
+    """Require permission to view stock items."""
+
+    message = translate_lazy("Stock item view permission is required.")
+
+    def has_permission(self, request, view):
+        """Return whether the requesting user can view stock-item pricing."""
+        return check_user_permission(request.user, StockItem, "view")
+
+
 def _decimal_text(value):
     """Serialize decimal values without binary floating-point loss."""
     return format(value, "f") if value is not None else None
+
+
+def _display_decimal_text(value):
+    """Return a compact decimal string for a human-readable label."""
+    text = _decimal_text(value)
+    return text.rstrip("0").rstrip(".") if text and "." in text else text
 
 
 def _source_label(snapshot):
@@ -70,7 +89,7 @@ def _source_label(snapshot):
     label = f"{source} #{snapshot.object_id}"
     if snapshot.quantity is not None:
         label = translate("{label} at quantity {quantity}").format(
-            label=label, quantity=_decimal_text(snapshot.quantity)
+            label=label, quantity=_display_decimal_text(snapshot.quantity)
         )
     return label
 
@@ -194,3 +213,60 @@ class PurchaseOrderPriceSnapshotView(APIView):
             results.append(result)
 
         return Response({"purchase_order": order_id, "results": results})
+
+
+class StockItemPriceSnapshotView(APIView):
+    """Return the latest frozen purchase price for one stock item."""
+
+    permission_classes: ClassVar[list] = [
+        IsAuthenticatedOrReadScope,
+        StockItemViewPermission,
+    ]
+
+    def get(self, request, stock_item_id):
+        """Return the immutable USD/IRT purchase-price pair for one stock item."""
+        from .models import PriceExchangeSnapshot  # noqa: PLC0415
+
+        try:
+            item = StockItem.objects.select_related("part", "supplier_part").get(
+                pk=stock_item_id
+            )
+        except StockItem.DoesNotExist as exc:
+            raise Http404 from exc
+
+        item_content_type = ContentType.objects.get_for_model(StockItem)
+        snapshot = (
+            PriceExchangeSnapshot.objects.filter(
+                content_type=item_content_type,
+                object_id=item.pk,
+                price_field="purchase_price",
+            )
+            .select_related("content_type")
+            .order_by("-captured_at", "-pk")
+            .first()
+        )
+        results = []
+
+        if snapshot is not None:
+            result = _snapshot_result(snapshot)
+            result.update(
+                {
+                    "stock_item": item.pk,
+                    "part": item.part_id,
+                    "part_name": item.part.full_name,
+                    "supplier_part": item.supplier_part_id,
+                    "supplier_sku": (
+                        item.supplier_part.SKU if item.supplier_part else None
+                    ),
+                    "purchase_order": item.purchase_order_id,
+                }
+            )
+            results.append(result)
+
+        return Response(
+            {
+                "stock_item": item.pk,
+                "part": item.part_id,
+                "results": results,
+            }
+        )

@@ -28,12 +28,17 @@ PERSIAN_MESSAGES: dict[str, str] = {
     "Purchase order view permission is required.": (
         "برای مشاهدهٔ این اطلاعات، دسترسی مشاهدهٔ سفارش خرید لازم است."
     ),
+    "Stock item view permission is required.": (
+        "برای مشاهدهٔ این اطلاعات، دسترسی مشاهدهٔ موجودی لازم است."
+    ),
     "Supplier price": "قیمت تأمین‌کننده",
     "Purchase order line": "ردیف سفارش خرید",
+    "Stock item": "موجودی",
     "Sale price": "قیمت فروش",
     "Internal price": "قیمت داخلی",
     "Part pricing": "قیمت‌گذاری قطعه",
     "Price": "قیمت",
+    "Purchase price": "قیمت خرید",
     "Minimum override": "حداقل قیمت دستی",
     "Maximum override": "حداکثر قیمت دستی",
     "{label} at quantity {quantity}": "{label} برای تعداد {quantity}",
