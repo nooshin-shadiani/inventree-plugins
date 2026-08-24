@@ -30,14 +30,14 @@ source code is required.
 Install directly from this repository:
 
 ```bash
-pip install "git+https://github.com/nooshin-shadiani/inventree-plugins.git@main#subdirectory=plugins/usd-irt-exchange-rate"
+pip install "git+https://github.com/nooshin-shadiani/inventree-plugins.git@master#subdirectory=plugins/usd-irt-exchange-rate"
 ```
 
 For a persistent InvenTree or Docker installation, add this line to
 `plugins.txt` instead:
 
 ```text
-git+https://github.com/nooshin-shadiani/inventree-plugins.git@main#subdirectory=plugins/usd-irt-exchange-rate
+git+https://github.com/nooshin-shadiani/inventree-plugins.git@master#subdirectory=plugins/usd-irt-exchange-rate
 ```
 
 The package installs a lightweight Python startup hook so IRT is registered
@@ -66,6 +66,19 @@ Then:
 Core prices remain saveable before the migration, but snapshots cannot be
 recorded until the plugin table exists. Apply the migration before relying on
 the history.
+
+## Updating an existing installation
+
+Back up the InvenTree database and media before upgrading. Update the plugin
+reference to `master` (or, preferably, to an exact reviewed commit), install the
+new package in the Python environment shared by both the web server and worker,
+apply migrations, collect static files, and restart both processes.
+
+For Docker deployments, do not run `pip install` only inside an existing server
+container: that change is lost when the container is recreated and does not
+update the worker. Rebuild the application image with the new plugin wheel, or
+use an installer release which pins that plugin version, then run the normal
+InvenTree migration and static-file steps before recreating server and worker.
 
 ## InvenTree configuration
 
