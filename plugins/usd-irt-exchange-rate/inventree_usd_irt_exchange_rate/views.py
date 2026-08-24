@@ -2,11 +2,12 @@
 
 from typing import ClassVar
 
+from company.models import SupplierPriceBreak
 from django.contrib.contenttypes.models import ContentType
 from django.http import Http404
 from InvenTree.permissions import IsAuthenticatedOrReadScope
 from order.models import PurchaseOrder, PurchaseOrderLineItem
-from part.models import Part
+from part.models import Part, PartInternalPriceBreak, PartPricing, PartSellPriceBreak
 from rest_framework.permissions import BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -30,6 +31,13 @@ FIELD_LABELS = {
     "override_min": "Minimum override",
     "override_max": "Maximum override",
 }
+
+PART_CATALOG_PRICE_MODELS = (
+    SupplierPriceBreak,
+    PartSellPriceBreak,
+    PartInternalPriceBreak,
+    PartPricing,
+)
 
 
 class PartViewPermission(BasePermission):
@@ -129,8 +137,14 @@ class PartPriceSnapshotView(APIView):
         if not Part.objects.filter(pk=part_id).exists():
             raise Http404
 
+        catalog_content_types = tuple(
+            ContentType.objects.get_for_models(*PART_CATALOG_PRICE_MODELS).values()
+        )
         snapshots = (
-            PriceExchangeSnapshot.objects.filter(part_id=part_id)
+            PriceExchangeSnapshot.objects.filter(
+                part_id=part_id,
+                content_type__in=catalog_content_types,
+            )
             .select_related("content_type")
             .order_by("-captured_at", "-pk")
         )

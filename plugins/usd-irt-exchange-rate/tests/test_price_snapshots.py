@@ -127,6 +127,24 @@ class PriceExchangeSnapshotTests(InvenTreeTestCase):
             quantity=2,
             purchase_price=Money("20", "USD"),
         )
+        catalog_price = company.models.SupplierPriceBreak.objects.create(
+            part=self.supplier_part,
+            quantity=1,
+            price=Money("10", "USD"),
+        )
+        PriceExchangeSnapshot.objects.create(
+            content_type=ContentType.objects.get(
+                app_label="order", model="purchaseorderlineitem"
+            ),
+            object_id=999999,
+            price_field="purchase_price",
+            part_id=self.part.pk,
+            quantity=1,
+            original_amount=Decimal("20"),
+            original_currency="AUD",
+            usd_to_irt_rate=Decimal("187800"),
+            conversion_status="unsupported_currency",
+        )
         self.user.is_superuser = True
         self.user.save()
         request = APIRequestFactory().get("/")
@@ -147,6 +165,17 @@ class PriceExchangeSnapshotTests(InvenTreeTestCase):
         self.assertEqual(result["amount_usd"], "15.000000000000")
         self.assertEqual(result["amount_irt"], "2817000.000000000000")
         self.assertNotEqual(response.data["stock_item"], other_item.pk)
+
+        part_response = views.PartPriceSnapshotView.as_view()(
+            request,
+            part_id=self.part.pk,
+        )
+        self.assertEqual(part_response.status_code, 200)
+        self.assertEqual(len(part_response.data["results"]), 1)
+        self.assertEqual(
+            part_response.data["results"][0]["source"],
+            f"Supplier price #{catalog_price.pk} at quantity 1",
+        )
 
     def test_price_and_rate_changes_append_without_rewriting_history(self):
         """Keep the first conversion immutable when a later price is saved."""
